@@ -1,8 +1,10 @@
 ;; -*- lexical-binding: t -*-
 
-;;; init.el --- Configuración simple para Windows -*- lexical-binding: t -*-
+;;; init.el --- Configuración completa para Windows con Magit, Vertico, Corfu y más -*- lexical-binding: t -*-
 ;;; Commentary:
-;; Configuración minimalista con mejor manejo de errores
+;; Configuración robusta para Windows con gestión de paquetes mejorada,
+;; completado moderno, soporte para Lisp/Scheme/Clojure, Magit (con gestión de commits),
+;; herramientas útiles, gestión de backups y guía de recuperación.
 
 ;;; Code:
 
@@ -12,36 +14,35 @@
 ;;; Package Management - Versión Robusta
 (require 'package)
 
-;; Configuración de repositorios incluyendo MELPA
+;; Configuración de repositorios incluyendo MELPA (HTTPS preferido)
 (setq package-archives
-      '(("gnu" . "http://elpa.gnu.org/packages/")
-        ("nongnu" . "http://elpa.nongnu.org/nongnu/")
-        ("melpa" . "http://melpa.org/packages/")))
+      '(("gnu" . "https://elpa.gnu.org/packages/")
+        ("nongnu" . "https://elpa.nongnu.org/nongnu/")
+        ("melpa" . "https://melpa.org/packages/")))
 
-;; Configuración de red para mejor compatibilidad
-(setq gnutls-algorithm-priority "NORMAL:-VERS-TLS1.3")
+;; Configuración de red (si tienes problemas de conexión)
+(when (and (fboundp 'gnutls-available-p) (gnutls-available-p))
+  (setq gnutls-algorithm-priority "NORMAL:-VERS-TLS1.3")) ; Desactivar TLS 1.3 si causa problemas
 (setq network-security-level 'low)
 
-;; Inicialización segura de paquetes
+;; Inicialización y refresco de paquetes con manejo de errores
 (package-initialize)
 
-;; Refrescar contenidos con manejo de errores
-(condition-case err
-    (unless package-archive-contents
-      (package-refresh-contents))
-  (error
-   (message "Error refreshing package contents: %s" (error-message-string err))))
+(unless package-archive-contents
+  (condition-case err
+      (package-refresh-contents)
+    (error (message "Error al refrescar los paquetes: %s" (error-message-string err)))))
 
 ;; Instalar use-package si no está presente
 (unless (package-installed-p 'use-package)
   (condition-case nil
       (package-install 'use-package)
-    (error (message "Failed to install use-package"))))
+    (error (message "Error al instalar use-package"))))
 
 (require 'use-package)
-(setq use-package-always-ensure nil)  ; Desactivamos ensure por defecto
+(setq use-package-always-ensure t) ; Activar para asegurar la instalación de paquetes
 
-;;; Built-in configuraciones esenciales
+;;; Configuración básica de Emacs
 (use-package emacs
   :init
   ;; Mejores defaults
@@ -50,22 +51,41 @@
    initial-scratch-message nil
    ring-bell-function 'ignore
    frame-resize-pixelwise t
-   use-dialog-box nil)
-  
+   use-dialog-box nil
+   sentence-end-double-space nil
+   indent-tabs-mode nil
+   create-lockfiles nil
+   auto-save-default nil
+   make-backup-files t ; Activar backups (¡importante!)
+   help-window-select t
+   enable-recursive-minibuffers t
+   history-length 1000
+   extended-command-suggest-shorter t)
+
   ;; Mejor experiencia de edición
   (delete-selection-mode 1)
   (global-auto-revert-mode 1)
   (show-paren-mode 1)
   (electric-pair-mode 1)
-  (column-number-mode 1))
+  (column-number-mode 1)
+  (global-display-line-numbers-mode t) ; Números de línea activados por defecto
+
+  ;; Performance
+  (setq auto-mode-case-fold nil)
+  (setq read-process-output-max (* 1024 1024))
+
+  :config
+    (setq default-buffer-file-coding-system 'utf-8-unix) ; Codificación UTF-8 por defecto
+    (setq backup-directory-alist `(("." . ,(expand-file-name "~/.emacs.d/backups/")))) ; Directorio de backups
+)
 
 ;;; Tema built-in
 (load-theme 'modus-operandi t)
 
-;;; Transient y Magit
+;;; Transient y Magit (CON TU CÓDIGO ORIGINAL INTEGRO)
 (use-package transient
   :ensure t
-  :pin gnu)  ; Forzar uso de la versión GNU
+  :pin gnu)
 
 (use-package magit
   :ensure t
@@ -85,107 +105,100 @@ Realiza los siguientes pasos:
 4. Realiza commit y push"
   (interactive)
   (require 'magit nil t)  ; Cargar Magit de manera segura
-  
+
   ;; Definir el directorio de configuración de Emacs de manera compatible
-  (let ((emacs-config-dir 
+  (let ((emacs-config-dir
          (or (and (boundp 'user-emacs-directory) user-emacs-directory)
              (expand-file-name "~/.emacs.d/"))))
-    
+
     ;; Verificar si Magit está disponible
     (if (not (fboundp 'magit-status))
         (error "Magit no está instalado. Por favor, instala Magit primero.")
-      
+
       ;; Cambiar al directorio de configuración de Emacs
       (cd emacs-config-dir)
-      
+
       ;; Verificar si es un repositorio Git
       (if (not (file-exists-p (expand-file-name ".git" emacs-config-dir)))
           (error "El directorio de configuración no es un repositorio Git. Inicializa git primero.")
-        
+
         ;; Mostrar estado de Git
         (magit-status emacs-config-dir)
-        
+
         ;; Preguntar al usuario si quiere continuar
         (when (y-or-n-p "¿Deseas actualizar tu configuración de Emacs? ")
           ;; Solicitar mensaje de commit
-          (let ((commit-message 
+          (let ((commit-message
                  (read-string "Describe los cambios (mensaje de commit): ")))
-            
+
             ;; Agregar todos los archivos modificados
             (when (y-or-n-p "¿Quieres agregar todos los archivos modificados? ")
               (magit-stage-modified t))
-            
+
             ;; Crear commit
-            (magit-commit-create 
+            (magit-commit-create
              (list "-m" commit-message))
-            
+
             ;; Hacer push
             (when (y-or-n-p "¿Deseas hacer push a GitHub? ")
               (magit-push-current-to-pushremote nil))
-            
+
             (message "Configuración actualizada exitosamente.")))))))
 
 ;; Atajo de teclado opcional
 (global-set-key (kbd "C-c u") 'my/update-config)
 
-;; GUÍA DE RECUPERACIÓN Y BACKUP DE LA CONFIGURACIÓN DE EMACS
-;;
-;; Procedimiento manual de commit y gestión de configuración
-;;
-;; Comandos básicos de Git para la configuración de Emacs:
-;; 
-;; 1. HACER COMMIT MANUALMENTE
-;; ==============================
-;; a) Cambiar al directorio de configuración:
-;;    cd ~/.emacs.d/
-;;
-;; b) Ver estado de los archivos:
-;;    git status
-;;
-;; c) Agregar archivos específicos:
-;;    git add init.el
-;;    git add otras-configuraciones.el
-;;
-;; d) Agregar TODOS los archivos modificados:
-;;    git add .
-;;
-;; e) Hacer commit con un mensaje descriptivo:
-;;    git commit -m "Descripción de los cambios realizados"
-;;
-;; f) Subir cambios a GitHub (si está configurado):
-;;    git push origin main
-;;
-;; 2. RECUPERAR CONFIGURACIÓN ANTERIOR
-;; ====================================
-;; a) Ver historial de commits:
-;;    git log init.el
-;;
-;; b) Restaurar a un commit específico:
-;;    git checkout <hash-del-commit> init.el
-;;
-;; c) Restaurar al último commit confirmado:
-;;    git checkout -- init.el
-;;
-;; 3. CASOS DE EMERGENCIA
-;; ======================
-;; - Si todo falla, puedes clonar tu repositorio de GitHub:
-;;   git clone https://github.tu-usuario/dotemacs.git ~/.emacs.d
-;;
-;; NOTA: Siempre mantén una copia de seguridad de tu configuración
+;;; Stack moderno de completado
+(use-package vertico
+  :ensure t
+  :init
+  (vertico-mode))
 
+(use-package orderless
+  :ensure t
+  :custom
+  (completion-styles '(basic partial-completion orderless))
+  (completion-category-overrides '((file (styles . (partial-completion basic)))))
+  :init
+  (setq completion-category-defaults nil))
 
-;;; Provide init
-(provide 'init)
-;;; init.el ends here
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(package-selected-packages nil))
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- )
+(use-package marginalia
+  :ensure t
+  :init
+  (marginalia-mode))
+
+(use-package corfu
+  :ensure t
+  :custom
+  (corfu-auto t)
+  (corfu-auto-delay 0.2)
+  (corfu-auto-prefix 2)
+  (corfu-preview-current nil)
+  (corfu-quit-at-boundary t)
+  (corfu-quit-no-match t)
+  :init
+  (global-corfu-mode)
+  :bind
+  (:map corfu-map
+        ("TAB" . corfu-next)
+        ([tab] . corfu-next)
+        ("S-TAB" . corfu-previous)
+        ([backtab] . corfu-previous)))
+
+;; Configuración específica para Imenu
+(use-package imenu
+  :custom
+  (imenu-auto-rescan t)
+  (imenu-use-popup-menu nil)
+  (imenu-max-item-length 100)
+  (imenu-space-replacement " ")
+  :config
+  (add-hook 'emacs-lisp-mode-hook #'imenu-add-menubar-index))
+
+(use-package consult
+  :ensure t
+  :bind
+  (("C-s" . consult-line)
+   ("C-x b" . consult-buffer)
+   ("C-x 4 b" . consult-buffer-other-window)
+   ("M-y" . consult-yank-pop)
