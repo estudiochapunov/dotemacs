@@ -202,3 +202,69 @@ Realiza los siguientes pasos:
    ("C-x b" . consult-buffer)
    ("C-x 4 b" . consult-buffer-other-window)
    ("M-y" . consult-yank-pop)
+   ("M-g g" . consult-goto-line)
+   ("M-g o" . consult-outline) ; CORREGIDO
+   ("M-s f" . consult-find)
+   ("M-s r" . consult-ripgrep)
+   ("M-g i" . consult-imenu)
+   ("C-x r f" . consult-recent-files)
+   ("C-x r b" . consult-recent-buffers)
+   ("<f1> f" . consult-find)
+   ("<f1> r" . consult-ripgrep))
+  :custom
+  (consult-narrow-key "<")) ; Carácter para estrechar las búsquedas
+
+;;; Configuración para el desarrollo en Lisp
+(use-package sly
+  :ensure t
+  :config
+  (setq inferior-lisp-program "sbcl")) ; o tu implementación de Lisp preferida
+
+;;; Configuración para el desarrollo en Scheme
+(use-package geiser
+  :ensure t
+  :config
+    (setq geiser-default-implementation 'guile)) ; o tu implementación de Scheme preferida
+
+;;; Editor de código estructurado
+(use-package paredit
+  :ensure t
+  :hook (prog-mode . enable-paredit-mode)) ; Activar paredit en todos los modos de programación
+
+;;; Delimitadores de colores
+(use-package rainbow-delimiters
+  :ensure t
+  :hook (prog-mode . rainbow-delimiters-mode)) ; Activar rainbow-delimiters en modos de programación
+
+;;; Configuración adicional (ejemplo: auto-complete-mode, si lo prefieres)
+;; (use-package auto-complete
+;;   :ensure t
+;;   :init
+;;   (ac-config-default)) ; Ejemplo
+
+;;; Guía de recuperación y backup de la configuración de Emacs
+;;; (ESTA SECCIÓN ES MUY IMPORTANTE, ADÁPTALA A TU SISTEMA)
+;; 1. Ubicación de la configuración: ~/.emacs.d/
+;; 2. Crear un repositorio Git: Dentro de ~/.emacs.d/, ejecuta `git init`
+;; 3. Agregar los archivos: `git add .`
+;; 4. Commit inicial: `git commit -m "Initial Emacs config"`
+;; 5. (Opcional) Subir a un repositorio remoto (GitHub, GitLab, etc.):
+;;    - Crear un repositorio en tu proveedor Git.
+;;    - Agregar el remoto: `git remote add origin <url_del_repositorio>`
+;;    - Hacer push: `git push -u origin main` (o `master`)
+
+;;; Para recuperar la configuración en otro equipo:
+;; 1. Clonar el repositorio: `git clone <url_del_repositorio> ~/.emacs.d/`
+
+;;; Backup manual (adicional al control de versiones con Git):
+;;; Copiar la carpeta ~/.emacs.d/ a una ubicación segura (ej. un disco externo o la nube).
+
+;;; Opcionalmente puedes agregar la siguiente linea para que custom.el guarde las variables elegidas por la interfaz de personalizacion
+;;; en tu init.el en vez de crear un custom.el separado (no recomendado usualmente)
+;;; (setq custom-file (locate-user-emacs-file "init.el"))
+
+;;; Final del archivo
+(provide 'init)
+
+;;; No incluyo custom-set-variables ni custom-set-faces para evitar sobreescribir configuraciones del usuario al copiar y pegar.
+;;; El usuario puede usar M-x customize para configurar opciones y se guardarán en su init.el si descomenta la linea de arriba o en un archivo custom.el separado.
