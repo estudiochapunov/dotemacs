@@ -1,0 +1,9 @@
+elpa/
+auto-save-list/
+*~
+*.elc
+straight/
+transient/
+eshell/
+init.el.1
+init.el.OK
