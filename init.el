@@ -268,3 +268,15 @@ Realiza los siguientes pasos:
 
 ;;; No incluyo custom-set-variables ni custom-set-faces para evitar sobreescribir configuraciones del usuario al copiar y pegar.
 ;;; El usuario puede usar M-x customize para configurar opciones y se guardarán en su init.el si descomenta la linea de arriba o en un archivo custom.el separado.
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(package-selected-packages nil))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ )
