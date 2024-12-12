@@ -128,6 +128,52 @@ Realiza los siguientes pasos:
 ;; Atajo de teclado opcional
 (global-set-key (kbd "C-c u") 'my/update-config)
 
+;; GUÍA DE RECUPERACIÓN Y BACKUP DE LA CONFIGURACIÓN DE EMACS
+;;
+;; Procedimiento manual de commit y gestión de configuración
+;;
+;; Comandos básicos de Git para la configuración de Emacs:
+;; 
+;; 1. HACER COMMIT MANUALMENTE
+;; ==============================
+;; a) Cambiar al directorio de configuración:
+;;    cd ~/.emacs.d/
+;;
+;; b) Ver estado de los archivos:
+;;    git status
+;;
+;; c) Agregar archivos específicos:
+;;    git add init.el
+;;    git add otras-configuraciones.el
+;;
+;; d) Agregar TODOS los archivos modificados:
+;;    git add .
+;;
+;; e) Hacer commit con un mensaje descriptivo:
+;;    git commit -m "Descripción de los cambios realizados"
+;;
+;; f) Subir cambios a GitHub (si está configurado):
+;;    git push origin main
+;;
+;; 2. RECUPERAR CONFIGURACIÓN ANTERIOR
+;; ====================================
+;; a) Ver historial de commits:
+;;    git log init.el
+;;
+;; b) Restaurar a un commit específico:
+;;    git checkout <hash-del-commit> init.el
+;;
+;; c) Restaurar al último commit confirmado:
+;;    git checkout -- init.el
+;;
+;; 3. CASOS DE EMERGENCIA
+;; ======================
+;; - Si todo falla, puedes clonar tu repositorio de GitHub:
+;;   git clone https://github.tu-usuario/dotemacs.git ~/.emacs.d
+;;
+;; NOTA: Siempre mantén una copia de seguridad de tu configuración
+
+
 ;;; Provide init
 (provide 'init)
 ;;; init.el ends here
