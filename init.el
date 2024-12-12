@@ -76,6 +76,51 @@
     (when-let ((git-path (executable-find "git")))
       (setq magit-git-executable git-path))))
 
+;; Función para actualizar la configuración de Emacs
+(defun my/update-config ()
+  "Update Emacs configuration in Git and push to GitHub.
+This function:
+1. Shows current Git status
+2. Asks for files to add
+3. Creates a commit with a message
+4. Pushes to GitHub"
+  (interactive)
+  (let ((default-directory (expand-file-name user-emacs-directory))
+        (changes-exist nil))
+    
+    ;; Verificar si hay cambios
+    (when (magit-anything-modified-p)
+      (setq changes-exist t)
+      
+      ;; Mostrar estado actual
+      (magit-status-setup-buffer default-directory)
+      
+      ;; Preguntar si queremos hacer stage de todos los cambios
+      (when (y-or-n-p "¿Hacer stage de todos los cambios? ")
+        (magit-stage-modified))
+      
+      ;; Si no elegimos todos, preguntar archivo por archivo
+      (unless (magit-staged-files)
+        (dolist (file (magit-modified-files))
+          (when (y-or-n-p (format "¿Hacer stage de %s? " file))
+            (magit-stage-file file))))
+      
+      ;; Si hay archivos en stage, proceder con el commit
+      (when (magit-staged-files)
+        (let ((commit-msg (read-string "Mensaje del commit: ")))
+          (magit-commit-create (list "-m" commit-msg))
+          
+          ;; Preguntar si queremos hacer push
+          (when (y-or-n-p "¿Hacer push a GitHub? ")
+            (magit-push-current-to-pushremote nil)))))
+    
+    ;; Mensaje si no hay cambios
+    (unless changes-exist
+      (message "No hay cambios para actualizar"))))
+
+;; Bind the function to a key
+(global-set-key (kbd "C-c u") #'my/update-config)
+
 ;;; Provide init
 (provide 'init)
 ;;; init.el ends here
