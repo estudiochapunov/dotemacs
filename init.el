@@ -80,26 +80,7 @@
 )
 
 ;;; Tema built-in
-;; (load-theme 'modus-operandi t) ;; funcionaba blanco pero lo reemplacé por doom-one a ver qué tal
-
-(use-package doom-themes
-  :ensure t
-  :config
-  ;; Habilita globalmente doom-themes (opcional, si quieres acceder a todos los temas)
-  (doom-themes-enable-all-themes t) 
-
-  ;; Personaliza el tema activo (ejemplo: doom-one)
-  (setq doom-theme 'doom-one)
-
-  ;; Desactiva negrita e itálica en el tema
-  (setq doom-themes-enable-bold nil 
-        doom-themes-enable-italic nil) 
-
-  ;; **NO** modifiques doom-font, doom-variable-pitch-font ni doom-big-font
-  ;; Esto mantendrá tu configuración de fuentes actual.
-
-  ;; **NO** uses custom-set-faces para cambiar la fuente default.
-)
+  (load-theme 'zenburn t) ;; antes era (load-theme 'modus-operandi t)
 
 ;;; Transient y Magit (CON TU CÓDIGO ORIGINAL INTEGRO)
 (use-package transient
@@ -292,7 +273,9 @@ Realiza los siguientes pasos:
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(package-selected-packages nil))
+ '(package-selected-packages
+   '(consult corfu doom-themes geiser magit marginalia orderless paredit
+             rainbow-delimiters sly vertico)))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
