@@ -180,6 +180,10 @@
 
 (use-package vterm)
 
+(setq select-enable-clipboard t
+      select-enable-primary t
+      save-interprogram-paste-before-kill t)
+
 (use-package xclip
   :if (and (lenovo/executable-p "xclip") (getenv "DISPLAY"))
   :init
