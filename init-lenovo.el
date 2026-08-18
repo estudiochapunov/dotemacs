@@ -496,38 +496,99 @@ el menú Y/C/E/N."
      (err (lenovo/message "ia-ask: error — %s" err))
      ((or (null lisp) (string-empty-p lisp))
       (lenovo/message "ia-ask: sin propuesta ejecutable. %s" (or notes "")))
-     (t (lenovo/ia-ask-repl--menu lisp summary risk notes)))))
+     (t
+      (lenovo/message "Validando sintaxis, símbolos y política en nyxt-ia...")
+      (sly-eval-async `(nyxt::ia-ask-check-code ,lisp)
+        (lambda (report)
+          (lenovo/ia-ask-repl--menu lisp summary risk notes report)))))))
 
-(defun lenovo/ia-ask-repl--menu (lisp summary risk notes)
-  "Mostrar LISP/SUMMARY/RISK/NOTES en un buffer y pedir Y/C/E/N."
+(defun lenovo/ia-ask-repl--validation-text (report)
+  "Formatear el REPORT estático devuelto por nyxt-ia."
+  (format (concat "validación local:\n"
+                  "  sintaxis: %s\n  símbolos: %s\n  política: %s\n"
+                  "  riesgo: %s\n  ejecutable: %s\n"
+                  "  funciones desconocidas: %s\n  bloqueo: %s\n"
+                  "  advertencias: %s\n  error: %s")
+          (plist-get report :SYNTAX)
+          (plist-get report :SYMBOLS)
+          (plist-get report :POLICY)
+          (plist-get report :RISK)
+          (if (plist-get report :EXECUTABLE-P) "sí" "no")
+          (or (plist-get report :UNKNOWN-FUNCTIONS) "—")
+          (or (plist-get report :BLOCKED-FRAGMENT) "—")
+          (or (plist-get report :WARNINGS) "—")
+          (or (plist-get report :ERROR) "—")))
+
+(defun lenovo/ia-ask-repl--menu (lisp summary model-risk notes report)
+  "Mostrar propuesta y REPORT local; ofrecer acciones seguras.
+MODEL-RISK se conserva como dato informativo, pero no autoriza ejecución."
   (let ((buf (get-buffer-create "*ia-ask-repl*")))
     (with-current-buffer buf
+      (view-mode -1)
       (erase-buffer)
-      (insert (format "riesgo: %s\n\n%s\n\n%s\n\nnotas: %s\n"
-                       risk summary lisp notes))
+      (insert (format "riesgo declarado por modelo: %s\n\n%s\n\n%s\n\nnotas: %s\n\n%s\n"
+                       model-risk summary lisp notes
+                       (lenovo/ia-ask-repl--validation-text report)))
       (goto-char (point-min))
       (emacs-lisp-mode)
       (view-mode 1))
     (display-buffer buf))
-  (let ((choice (read-char-choice
-                 "ia-ask: (y) ejecutar  (c) copiar  (e) editar y ejecutar  (n) cancelar: "
-                 '(?y ?c ?e ?n))))
+  (let* ((executable (plist-get report :EXECUTABLE-P))
+         (choice
+          (read-char-choice
+           (if executable
+               "ia-ask: (y) validar/ejecutar  (c) copiar  (e) editar/validar/ejecutar  (n) cancelar: "
+             "ia-ask rechazó la propuesta: (c) copiar  (e) editar y revalidar  (n) cancelar: ")
+           (if executable '(?y ?c ?e ?n) '(?c ?e ?n)))))
     (pcase choice
-      (?y (lenovo/ia-ask-repl--execute lisp))
+      (?y (lenovo/ia-ask-repl--request-execution lisp))
       (?c (kill-new lisp) (lenovo/message "Copiado al kill-ring: %s" lisp))
-      (?e (lenovo/ia-ask-repl--execute
+      (?e (lenovo/ia-ask-repl--request-execution
            (read-string "Editar antes de ejecutar: " lisp)))
       (?n (lenovo/message "Cancelado, no se ejecutó nada.")))))
 
+(defun lenovo/ia-ask-repl--confirm-risk (risk)
+  "Pedir confirmación humana acorde al RISK calculado localmente."
+  (let* ((high (eq risk :HIGH))
+         (expected (if high "EJECUTAR" "SI"))
+         (answer (read-string
+                  (format "Riesgo local %s. Escribí %s para ejecutar: "
+                          risk expected))))
+    (string-equal (string-trim answer) expected)))
+
+(defun lenovo/ia-ask-repl--request-execution (lisp-string)
+  "Revalidar LISP-STRING y solicitar confirmación antes del gateway."
+  (lenovo/message "Revalidando la versión final en nyxt-ia...")
+  (sly-eval-async `(nyxt::ia-ask-check-code ,lisp-string)
+    (lambda (report)
+      (if (not (plist-get report :EXECUTABLE-P))
+          (lenovo/message "Ejecución rechazada. %s"
+                          (lenovo/ia-ask-repl--validation-text report))
+        (if (lenovo/ia-ask-repl--confirm-risk (plist-get report :RISK))
+            (lenovo/ia-ask-repl--execute lisp-string)
+          (lenovo/message "Cancelado: no se recibió la confirmación requerida."))))))
+
 (defun lenovo/ia-ask-repl--execute (lisp-string)
-  "Evaluar LISP-STRING de forma remota en nyxt-ia vía la conexión Sly.
-Se manda como string y se lee con `cl:read-from-string' del lado de SBCL
-(no con el reader de Emacs), para no depender de que Emacs entienda
-sintaxis propia de Common Lisp (#P\"...\", #\\caracter, etc.)."
-  (lenovo/message "Ejecutando en nyxt-ia...")
-  (sly-eval-async `(cl:eval (cl:read-from-string ,lisp-string))
+  "Ejecutar LISP-STRING únicamente mediante el gateway seguro de nyxt-ia."
+  (lenovo/message "Gateway confirmado; nyxt-ia revalida y ejecuta...")
+  (sly-eval-async
+      `(nyxt::ia-ask-check-and-execute ,lisp-string :confirmed-p t)
     (lambda (result)
-      (lenovo/message "Resultado: %S" result))))
+      (pcase (plist-get result :EXECUTION)
+        (:COMPLETED
+         (lenovo/message "Ejecución completada. Valores: %S%s"
+                         (plist-get result :VALUES)
+                         (let ((output (plist-get result :OUTPUT)))
+                           (if (and output (not (string-empty-p output)))
+                               (format " — output: %s" output)
+                             ""))))
+        (:REJECTED
+         (lenovo/message "Gateway rechazó la ejecución. %s"
+                         (lenovo/ia-ask-repl--validation-text result)))
+        (:FAILED
+         (lenovo/message "La ejecución falló sin reintento automático: %s"
+                         (or (plist-get result :RUNTIME-ERROR) "error desconocido")))
+        (_ (lenovo/message "Gateway no ejecutó: %S" result))))))
 
 (global-set-key (kbd "C-c w A") #'lenovo/ia-ask-repl)
 
