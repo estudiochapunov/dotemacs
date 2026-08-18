@@ -464,6 +464,27 @@ FLAVOR is a key of `lenovo/nyxt-flavors'."
 
 (global-set-key (kbd "C-c w N") #'lenovo/nyxt-launch)
 
+(defun lenovo/nyxt-ia-help ()
+  "Mostrar la ayuda canónica de `nyxt-ia' en un buffer de solo lectura."
+  (interactive)
+  (let* ((program (or (executable-find "nyxt-ia")
+                      "/home/gabriel/Repos/privado/Lenovo-sysadmin/scripts/nyxt-ia"))
+         (buf (get-buffer-create "*nyxt-ia-help*")))
+    (unless (file-executable-p program)
+      (user-error "No se encontró un launcher nyxt-ia ejecutable"))
+    (with-current-buffer buf
+      (view-mode -1)
+      (erase-buffer)
+      (let ((status (call-process program nil t nil "--help")))
+        (unless (zerop status)
+          (error "nyxt-ia --help terminó con estado %s" status)))
+      (goto-char (point-min))
+      (view-mode 1))
+    (display-buffer buf)
+    (lenovo/message "Manual Nyxt-IA abierto en *nyxt-ia-help*.")))
+
+(global-set-key (kbd "C-c w H") #'lenovo/nyxt-ia-help)
+
 ;; Menú Y/C/E/N para `nyxt::ia-ask-repl' (Lenovo-sysadmin/configuraciones/
 ;; nyxt_repl_ask.lisp) del lado de Emacs: el prompt-buffer/menú de confirmación
 ;; propio de Nyxt no se puede invocar desde una conexión Slynk externa, así
