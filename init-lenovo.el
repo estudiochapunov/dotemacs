@@ -464,6 +464,73 @@ FLAVOR is a key of `lenovo/nyxt-flavors'."
 
 (global-set-key (kbd "C-c w N") #'lenovo/nyxt-launch)
 
+;; Menú Y/C/E/N para `nyxt::ia-ask-repl' (Lenovo-sysadmin/configuraciones/
+;; nyxt_repl_ask.lisp) del lado de Emacs: el prompt-buffer/menú de confirmación
+;; propio de Nyxt no se puede invocar desde una conexión Slynk externa, así
+;; que este comando reproduce el mismo Y/N/R/E/S/C de ia-ask interactivo pero
+;; en Emacs, y reenvía el Lisp elegido a nyxt-ia por la misma conexión Sly.
+;; SBCL devuelve los keywords del plist en mayúsculas (:LISP, :SUMMARY, etc.
+;; readtable-case por defecto :upcase); ojo si se edita, hay que respetar eso.
+(defun lenovo/ia-ask-repl (pedido)
+  "Consultar `nyxt::ia-ask-repl' con PEDIDO por la conexión Sly activa y,
+cuando responda (asíncrono; puede tardar hasta ~225s si algún backend
+falla y cae a los siguientes), ofrecer (y) ejecutar el Lisp sugerido en
+nyxt-ia, (c) copiarlo al kill-ring, (e) editarlo antes de ejecutar, o
+(n) descartarlo."
+  (interactive "sia-ask (pedido en NL): ")
+  (unless (and (fboundp 'sly-connected-p) (sly-connected-p))
+    (user-error "No hay conexión Sly activa. Conectá primero con M-x sly-connect o M-x lenovo/nyxt-launch"))
+  (lenovo/message "Consultando ia-ask-repl (puede tardar hasta ~225s)...")
+  (sly-eval-async `(nyxt::ia-ask-repl ,pedido)
+    #'lenovo/ia-ask-repl--present))
+
+(defun lenovo/ia-ask-repl--present (result)
+  "Mostrar RESULT (el plist devuelto por `nyxt::ia-ask-repl') y ofrecer
+el menú Y/C/E/N."
+  (let ((err (plist-get result :ERROR))
+        (lisp (plist-get result :LISP))
+        (summary (plist-get result :SUMMARY))
+        (risk (plist-get result :RISK))
+        (notes (plist-get result :NOTES)))
+    (cond
+     (err (lenovo/message "ia-ask: error — %s" err))
+     ((or (null lisp) (string-empty-p lisp))
+      (lenovo/message "ia-ask: sin propuesta ejecutable. %s" (or notes "")))
+     (t (lenovo/ia-ask-repl--menu lisp summary risk notes)))))
+
+(defun lenovo/ia-ask-repl--menu (lisp summary risk notes)
+  "Mostrar LISP/SUMMARY/RISK/NOTES en un buffer y pedir Y/C/E/N."
+  (let ((buf (get-buffer-create "*ia-ask-repl*")))
+    (with-current-buffer buf
+      (erase-buffer)
+      (insert (format "riesgo: %s\n\n%s\n\n%s\n\nnotas: %s\n"
+                       risk summary lisp notes))
+      (goto-char (point-min))
+      (emacs-lisp-mode)
+      (view-mode 1))
+    (display-buffer buf))
+  (let ((choice (read-char-choice
+                 "ia-ask: (y) ejecutar  (c) copiar  (e) editar y ejecutar  (n) cancelar: "
+                 '(?y ?c ?e ?n))))
+    (pcase choice
+      (?y (lenovo/ia-ask-repl--execute lisp))
+      (?c (kill-new lisp) (lenovo/message "Copiado al kill-ring: %s" lisp))
+      (?e (lenovo/ia-ask-repl--execute
+           (read-string "Editar antes de ejecutar: " lisp)))
+      (?n (lenovo/message "Cancelado, no se ejecutó nada.")))))
+
+(defun lenovo/ia-ask-repl--execute (lisp-string)
+  "Evaluar LISP-STRING de forma remota en nyxt-ia vía la conexión Sly.
+Se manda como string y se lee con `cl:read-from-string' del lado de SBCL
+(no con el reader de Emacs), para no depender de que Emacs entienda
+sintaxis propia de Common Lisp (#P\"...\", #\\caracter, etc.)."
+  (lenovo/message "Ejecutando en nyxt-ia...")
+  (sly-eval-async `(cl:eval (cl:read-from-string ,lisp-string))
+    (lambda (result)
+      (lenovo/message "Resultado: %S" result))))
+
+(global-set-key (kbd "C-c w A") #'lenovo/ia-ask-repl)
+
 ;; ---------------------------------------------------------------------------
 ;; 10. Estética
 ;; ---------------------------------------------------------------------------
