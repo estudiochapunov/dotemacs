@@ -5,6 +5,8 @@
 ;; - robusto en terminal (-nw)
 ;; - conservador con dependencias externas
 ;; - compatible con Hyperbole 9.0.1 estable
+;; - monta el stack KN (knowledge-nodes + kn-repl) desde gigafactory-dotfiles,
+;;   repo de referencia solo-lectura (sección 11)
 
 ;;; Code:
 
@@ -620,6 +622,82 @@ MODEL-RISK se conserva como dato informativo, pero no autoriza ejecución."
 (use-package doom-themes
   :config
   (load-theme 'doom-one t))
+
+;; ---------------------------------------------------------------------------
+;; 11. KN — Knowledge Nodes y kn-repl (Gigafactory, montaje solo-lectura)
+;; ---------------------------------------------------------------------------
+;; Los módulos viven en el repo `gigafactory-dotfiles', que en esta Lenovo es
+;; SOLO LECTURA / referencia: nunca se escribe sobre él.  Se cargan in situ, sin
+;; copia local, para que un `git pull' en ese repo traiga los avances aguas
+;; arriba sin duplicar ~7.500 líneas que después divergirían en silencio.
+;;
+;; Cadena de dependencias real de kn-repl (verificada, no supuesta):
+;;   kn-repl.el -> knowledge-nodes.el  (kn-q, relaciones, kn-eval)
+;;              -> node-inspect.el     (ni--ancla, subtree indirect) [magit-section]
+;;              -> pdf-research.el     (biblioteca-anotar-pagina)    [pdf-tools]
+;; Quedan fuera tui-browse, contact-nodes y noter-roam-bridge: ninguno hace
+;; falta para el REPL y el último exigiría org-noter, ausente acá.
+;;
+;; Koutline llega vía Hyperbole 9.0.1 (sección 5): kn-repl hace (require
+;; 'kotl-mode), y las primitivas que usa la capa glue —kcell-view:parent/child/
+;; forward/idstamp/set-attr/get-attr— están todas en esa versión.
+;; `giga/kn-kotl-directory' lo define el propio kn-repl.el y ya apunta a
+;; ~/org/kotl/, así que no se redeclara acá.
+
+(defvar lenovo/gigafactory-moldable-dir
+  (expand-file-name "~/Repos/privado/gigafactory-dotfiles/emacs/moldable/")
+  "Raíz de los módulos moldable, montados desde el repo de referencia.")
+
+(use-package org-roam
+  :init
+  (setq org-roam-directory (expand-file-name "~/org/roam/")
+        org-roam-db-location (expand-file-name "~/org/roam/org-roam.db")
+        org-roam-dailies-directory "daily/"
+        org-roam-file-extensions '("org"))
+  :config
+  (org-roam-db-autosync-mode))
+
+;; Prefijo que los módulos asumen ya declarado (mismo contrato que el loader.el
+;; original del repo, que acá no se usa porque hardcodea ~/Dotfiles/).
+(define-prefix-command 'giga/knowledge-prefix)
+(global-set-key (kbd "C-c k") 'giga/knowledge-prefix)
+
+(defun lenovo/kn-load (relative label)
+  "Cargar RELATIVE desde el árbol moldable; si falla, avisar con LABEL y seguir.
+Fallar blando es deliberado: el repo es aguas arriba y puede cambiar sin aviso,
+y un módulo roto no debe impedir que Emacs arranque."
+  (let ((file (expand-file-name relative lenovo/gigafactory-moldable-dir)))
+    (condition-case err
+        (if (file-readable-p file)
+            (load file nil t)
+          (message "[kn] ausente %s: %s" label file))
+      (error (message "[kn] FAIL %s: %s" label err)))))
+
+;; --- Shim de compatibilidad Hyperbole 9.0.1 -------------------------------
+;; kn-repl fue escrito contra Hyperbole 9.0.2+ (la Gigafactory lo toma de GNU
+;; ELPA vía straight), donde `kotl-mode:add-child' acepta
+;; (RELATIVE-LEVEL CONTENTS PLIST NO-FILL).  En 9.0.1 —la estable que usa esta
+;; Lenovo— la misma función no toma argumentos, así que `crear-kotl' y
+;; `agregar-celda' fallan con "Wrong number of arguments: (0 . 0), 4".
+;; El puente es directo: la variante nueva no hace otra cosa que delegar en
+;; `kotl-mode:add-cell', que en 9.0.1 YA tiene la firma completa.
+;; La guarda por aridad hace que esto se desactive solo el día que se actualice
+;; Hyperbole, sin dejar una redefinición pisando a la versión buena.
+(with-eval-after-load 'kotl-mode
+  (when (and (fboundp 'kotl-mode:add-child)
+             (equal (func-arity 'kotl-mode:add-child) '(0 . 0)))
+    (defun kotl-mode:add-child (&optional _relative-level contents plist no-fill)
+      "Shim 9.0.1: agregar celda hija con CONTENTS, PLIST y NO-FILL.
+_RELATIVE-LEVEL se ignora — `add-child' siempre significa primer hijo, que es
+lo que codifica el (4) del argumento universal."
+      (interactive "*")
+      (kotl-mode:add-cell (list 4) contents plist no-fill))))
+
+(with-eval-after-load 'org-roam
+  (lenovo/kn-load "knowledge-nodes/knowledge-nodes.el" "Knowledge Nodes")
+  (lenovo/kn-load "node-inspect/node-inspect.el"       "Node Inspector")
+  (lenovo/kn-load "pdf-research/pdf-research.el"       "PDF Research")
+  (lenovo/kn-load "kn-repl/kn-repl.el"                 "KN-REPL"))
 
 (provide 'init)
 
