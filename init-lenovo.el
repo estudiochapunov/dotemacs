@@ -4,7 +4,7 @@
 ;; Refactor del stack Lenovo para Emacs 30:
 ;; - robusto en terminal (-nw)
 ;; - conservador con dependencias externas
-;; - compatible con Hyperbole 9.0.1 estable
+;; - compatible con Hyperbole 9.1.0 estable (GNU ELPA)
 ;; - monta el stack KN (knowledge-nodes + kn-repl) desde gigafactory-dotfiles,
 ;;   repo de referencia solo-lectura (sección 11)
 
@@ -138,13 +138,15 @@ Interactively, use the URL at point or prompt for one."
   (global-corfu-mode))
 
 ;; ---------------------------------------------------------------------------
-;; 5. Hyperbole estable (9.0.1)
+;; 5. Hyperbole estable (9.1.0)
 ;; ---------------------------------------------------------------------------
 
 (use-package hyperbole
   :demand t
   :init
-  ;; Hyperbole 9.0.1 usa hbmap:dir-user; HyWiki no está disponible aquí.
+  ;; hbmap:dir-user sigue siendo el directorio de datos del usuario.
+  ;; Desde 9.1.0 HyWiki SÍ está disponible (hywiki.el); todavía sin configurar
+  ;; acá — si se activa, definir hywiki-directory antes de (hyperbole-mode 1).
   (setq hbmap:dir-user (expand-file-name "~/.hyperb/"))
   (unless (file-directory-p hbmap:dir-user)
     (make-directory hbmap:dir-user t))
@@ -673,21 +675,21 @@ y un módulo roto no debe impedir que Emacs arranque."
           (message "[kn] ausente %s: %s" label file))
       (error (message "[kn] FAIL %s: %s" label err)))))
 
-;; --- Shim de compatibilidad Hyperbole 9.0.1 -------------------------------
-;; kn-repl fue escrito contra Hyperbole 9.0.2+ (la Gigafactory lo toma de GNU
-;; ELPA vía straight), donde `kotl-mode:add-child' acepta
-;; (RELATIVE-LEVEL CONTENTS PLIST NO-FILL).  En 9.0.1 —la estable que usa esta
-;; Lenovo— la misma función no toma argumentos, así que `crear-kotl' y
-;; `agregar-celda' fallan con "Wrong number of arguments: (0 . 0), 4".
-;; El puente es directo: la variante nueva no hace otra cosa que delegar en
-;; `kotl-mode:add-cell', que en 9.0.1 YA tiene la firma completa.
-;; La guarda por aridad hace que esto se desactive solo el día que se actualice
-;; Hyperbole, sin dejar una redefinición pisando a la versión buena.
+;; --- Shim de compatibilidad Hyperbole < 9.0.2 (INACTIVO desde 9.1.0) -------
+;; kn-repl fue escrito contra Hyperbole 9.0.2+, donde `kotl-mode:add-child'
+;; acepta (CELLS-TO-ADD CONTENTS PLIST NO-FILL).  En 9.0.1 esa función no
+;; tomaba argumentos y `crear-kotl'/`agregar-celda' fallaban con
+;; "Wrong number of arguments: (0 . 0), 4".
+;; Desde la actualización a 9.1.0 (2026-08-24) la firma nativa ya es la buena,
+;; así que la guarda por aridad deja el shim dormido.  Se conserva como red:
+;; si alguna vez hay que volver a 9.0.1, esto sigue siendo lo único que hace
+;; falta.  El puente es directo — la variante nueva sólo delega en
+;; `kotl-mode:add-cell', que ya en 9.0.1 tenía la firma completa.
 (with-eval-after-load 'kotl-mode
   (when (and (fboundp 'kotl-mode:add-child)
              (equal (func-arity 'kotl-mode:add-child) '(0 . 0)))
     (defun kotl-mode:add-child (&optional _relative-level contents plist no-fill)
-      "Shim 9.0.1: agregar celda hija con CONTENTS, PLIST y NO-FILL.
+      "Shim < 9.0.2: agregar celda hija con CONTENTS, PLIST y NO-FILL.
 _RELATIVE-LEVEL se ignora — `add-child' siempre significa primer hijo, que es
 lo que codifica el (4) del argumento universal."
       (interactive "*")
