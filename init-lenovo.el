@@ -646,6 +646,17 @@ MODEL-RISK se conserva como dato informativo, pero no autoriza ejecución."
 ;; `giga/kn-kotl-directory' lo define el propio kn-repl.el y ya apunta a
 ;; ~/org/kotl/, así que no se redeclara acá.
 
+;; --- Paths de material: resueltos por symlink, no por parche ------------------
+;; pdf-research.el trae escritos a mano ~/org/data/biblioteca/, ~/org/data/moodle/
+;; y ~/org/Brains/, que son los paths de la máquina de origen.  Acá NO se
+;; redefinen esas variables: el material real vive en ~/Documentos/kn/ y esos
+;; tres paths son symlinks que apuntan ahí.  Ventaja sobre el setq: el código
+;; aguas arriba encuentra lo que espera sin que haya que seguirle el ritmo a cada
+;; path nuevo que agregue, y si mañana cambia uno, se reapunta el symlink.
+;; El árbol quedó fuera de todo repo git porque pdf-research ESCRIBE en
+;; biblioteca/ (adopta PDFs, indexa INVENTARIO_MATERIAL.org) y eso no debe entrar
+;; a un repo que pushea a GitHub.  Ver ~/Documentos/kn/README.md.
+
 (defvar lenovo/gigafactory-moldable-dir
   (expand-file-name "~/Repos/privado/gigafactory-dotfiles/emacs/moldable/")
   "Raíz de los módulos moldable, montados desde el repo de referencia.")
